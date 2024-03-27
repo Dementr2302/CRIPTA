@@ -1,70 +1,28 @@
-import random
-# реализация теста Ферма
-def is_prime(n, k=5):
-    """
-    Выполняет тест Ферма на простоту числа.
+# построение SHA-256 для введённого текста (библиотечная реализация)
 
-    Args:
-        n (int): Число для проверки на простоту.
-        k (int, optional): Количество тестов. По умолчанию 5.
+# импорт готовой библиотеки
+import hashlib
 
-    Returns:
-        bool: True, если число вероятно простое, иначе False.
-    """
-    if n <= 1:
-        return False  # Число меньше или равно 1, по определению не является простым.
-    if n == 2:
-        return False  # Для двойки не выполняется условие для теста Ферма.
+def calculate_sha256(text):
+    # преобразование текста в байтовую строку
+    text_bytes = text.encode('utf-8')
 
-    for _ in range(k):
-        a = random.randint(2, n - 1)
-        if pow(a, n - 1, n) != 1:
-            return False  # Если условие теста Ферма не выполняется, число точно составное.
+    # создание объекта хеша SHA-256
+    sha256_hash = hashlib.sha256()
 
-    return True  # Если все тесты пройдены успешно, число вероятно простое.
+    # обновление хеша с данными из текста
+    sha256_hash.update(text_bytes)
 
-def find_composite_numbers(limit, num_tests):
-    """
-    Находит составные числа до заданного предела.
+    # получение хеша в виде шестнадцатеричной строки
+    hashed_text = sha256_hash.hexdigest()
 
-    Args:
-        limit (int): Верхний предел поиска.
-        num_tests (int): Количество тестов для каждого числа.
+    return hashed_text
 
-    Returns:
-        list: Список составных чисел.
-    """
-    composite_numbers = []
-    for i in range(2, limit + 1):
-        if not is_prime(i, num_tests):
-            composite_numbers.append(i)  # Если число не проходит тест на простоту, оно добавляется в список составных чисел.
-    return composite_numbers
+# ввод текст для хеширования
+user_text = input("Введите текст: ")
 
-def composite_numbers_test(composite_numbers, num_tests):
-    """
-    Проверяет составные числа, чтобы увидеть результат множественных тестов.
+# вычисление SHA-256 хеш
+hashed_result = calculate_sha256(user_text)
 
-    Args:
-        composite_numbers (list): Список составных чисел.
-        num_tests (int): Количество тестов.
-
-    Returns:
-        dict: Словарь с составными числами в качестве ключей и результатами тестов в качестве значений.
-    """
-    results = {}
-    for num in composite_numbers:
-        test_result = is_prime(num, num_tests)
-        results[num] = test_result  # Сохраняем результаты тестов в словаре.
-    return results
-
-# Поиск составных чисел до одного миллиарда.
-limit = 1000
-composite_numbers = find_composite_numbers(limit, num_tests=1)
-
-# Проверка составных чисел с 2 до 100 тестов.
-test_results = composite_numbers_test(composite_numbers, num_tests=100)
-
-# Вывод результатов.
-for num, result in test_results.items():
-    print(f"Число {num}: Результат первого теста: {'Простое' if result else 'Составное'}, "
-          f"результат 100 тестов: {'Простое' if is_prime(num, 100) else 'Составное'}")
+# вывод результата
+print(f"SHA-256 хеш для введенного текста: {hashed_result}")
