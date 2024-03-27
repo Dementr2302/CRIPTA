@@ -1,142 +1,73 @@
-from cryptography.hazmat.backends import default_backend  # Импорт бэкенда по умолчанию для криптографических операций
-from cryptography.hazmat.primitives import hashes  # Импорт хеш-функций
-from cryptography.hazmat.primitives.asymmetric import dsa  # Импорт асимметричного алгоритма DSA
-from cryptography.exceptions import InvalidSignature  # Импорт исключения InvalidSignature для обработки недопустимых подписей
-from cryptography.hazmat.backends import default_backend  # Импорт бэкенда по умолчанию для криптографических операций
-from cryptography.hazmat.primitives import hashes  # Импорт хеш-функций
-from cryptography.hazmat.primitives.asymmetric import dsa  # Импорт асимметричного алгоритма DSA
-from cryptography.exceptions import InvalidSignature  # Импорт исключения InvalidSignature для обработки недопустимых подписей
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+import os
 
-# Приватный ключ используется для создания цифровой подписи данных.
-# Только владелец приватного ключа может создавать подписи, и он
-# должен хранить свой приватный ключ в безопасном месте, так как его
-# компрометация может позволить злоумышленникам создавать поддельные подписи от имени владельца.
-
-# Публичный ключ используется для проверки цифровой подписи.
-# Он распространяется открыто и может быть доступен всем.
-# Проверка подписи выполняется с помощью публичного ключа:
-# если подпись проверяется успешно с использованием публичного ключа,
-# это означает, что данные подписаны с использованием соответствующего
-# приватного ключа и не были изменены после подписания.
-
-def generate_key_pair():  # Определение функции для генерации ключевой пары
-    private_key = dsa.generate_private_key(key_size=1024, backend=default_backend())  # Генерация приватного ключа DSA
-    public_key = private_key.public_key()  # Получение публичного ключа из приватного
-    return private_key, public_key  # Возвращение сгенерированных ключей
-
-def sign_message(private_key, message):  # Определение функции для подписи сообщения
-    signature = private_key.sign(  # Подписание сообщения приватным ключом
-        message,  # Сообщение, которое требуется подписать
-        hashes.SHA256()  # Используемая хеш-функция SHA-256
+def generate_key_pair():
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
     )
-    return signature  # Возвращение подписи
+    public_key = private_key.public_key()
+    return private_key, public_key
 
-def verify_signature(public_key, message, signature):  # Определение функции для проверки подписи
+def sign_file(private_key, file_path):
+    with open(file_path, 'rb') as f:
+        file_data = f.read()
+
+    signature = private_key.sign(
+        file_data,
+        padding.PSS(
+            mgf=padding.MGF1(hashes.SHA256()),
+            salt_length=padding.PSS.MAX_LENGTH
+        ),
+        hashes.SHA256()
+    )
+
+    with open(file_path + '.sig', 'wb') as signature_file:
+        signature_file.write(signature)
+
+def verify_signature(public_key, file_path, signature_path):
+    with open(file_path, 'rb') as f:
+        file_data = f.read()
+
+    with open(signature_path, 'rb') as signature_file:
+        signature = signature_file.read()
+
     try:
-        public_key.verify(  # Проверка подписи с использованием публичного ключа
-            signature,  # Подпись, которую нужно проверить
-            message,  # Оригинальное сообщение
-            hashes.SHA256()  # Используемая хеш-функция SHA-256
+        public_key.verify(
+            signature,
+            file_data,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
         )
-        return True  # Если подпись верна, возвращаем True
-    except InvalidSignature:
-        return False  # Если подпись недействительна, возвращаем False
-
-def read_file(file_path):  # Определение функции для чтения файла
-    with open(file_path, "rb") as file:  # Открытие файла для чтения в бинарном режиме
-        return file.read()  # Возвращение содержимого файла
-
-def write_file(file_path, data):  # Определение функции для записи данных в файл
-    with open(file_path, "wb") as file:  # Открытие файла для записи в бинарном режиме
-        file.write(data)  # Запись данных в файл
+        print("Signature is valid.")
+    except:
+        print("Signature is invalid.")
 
 # Генерация ключевой пары
-private_key, public_key = generate_key_pair()  # Генерация ключевой пары
+private_key, public_key = generate_key_pair()
 
-# Чтение файла, который нужно подписать
-file_path = "test.txt"  # Путь к файлу, который нужно подписать
-message = read_file(file_path)  # Чтение содержимого файла
+# Подпись файла
+file_to_sign = 'example.txt'
+with open(file_to_sign, 'w') as f:
+    f.write("This is some data.")
 
-# Подписание файла
-signature = sign_message(private_key, message)  # Подписание файла
+sign_file(private_key, file_to_sign)
 
-# Запись подписи в файл
-signature_file_path = "signature.sig"  # Путь к файлу, в который будет записана подпись
-write_file(signature_file_path, signature)  # Запись подписи в файл
-
-print(public_key)
-print(private_key)
 # Проверка подписи
-signature_to_verify = read_file(signature_file_path)  # Чтение подписи из файла
-is_valid_signature = verify_signature(public_key, message, signature_to_verify)  # Проверка подписи
-if is_valid_signature:  # Если подпись верна
-    print("Подпись верна.")  # Вывод сообщения о верности подписи
-else:  # Если подпись недействительна
-    print("Подпись неверна.")  # Вывод сообщения о недействительности подписи
+signature_file = file_to_sign + '.sig'
+verify_signature(public_key, file_to_sign, signature_file)
 
-# Приватный ключ используется для создания цифровой подписи данных.
-# Только владелец приватного ключа может создавать подписи, и он
-# должен хранить свой приватный ключ в безопасном месте, так как его
-# компрометация может позволить злоумышленникам создавать поддельные подписи от имени владельца.
+# Попытка изменить файл
+with open(file_to_sign, 'a') as f:
+    f.write("\nThis data is added to modify the file.")
 
-# Публичный ключ используется для проверки цифровой подписи.
-# Он распространяется открыто и может быть доступен всем.
-# Проверка подписи выполняется с помощью публичного ключа:
-# если подпись проверяется успешно с использованием публичного ключа,
-# это означает, что данные подписаны с использованием соответствующего
-# приватного ключа и не были изменены после подписания.
-
-def generate_key_pair():  # Определение функции для генерации ключевой пары
-    private_key = dsa.generate_private_key(key_size=1024, backend=default_backend())  # Генерация приватного ключа DSA
-    public_key = private_key.public_key()  # Получение публичного ключа из приватного
-    return private_key, public_key  # Возвращение сгенерированных ключей
-
-def sign_message(private_key, message):  # Определение функции для подписи сообщения
-    signature = private_key.sign(  # Подписание сообщения приватным ключом
-        message,  # Сообщение, которое требуется подписать
-        hashes.SHA256()  # Используемая хеш-функция SHA-256
-    )
-    return signature  # Возвращение подписи
-
-def verify_signature(public_key, message, signature):  # Определение функции для проверки подписи
-    try:
-        public_key.verify(  # Проверка подписи с использованием публичного ключа
-            signature,  # Подпись, которую нужно проверить
-            message,  # Оригинальное сообщение
-            hashes.SHA256()  # Используемая хеш-функция SHA-256
-        )
-        return True  # Если подпись верна, возвращаем True
-    except InvalidSignature:
-        return False  # Если подпись недействительна, возвращаем False
-
-def read_file(file_path):  # Определение функции для чтения файла
-    with open(file_path, "rb") as file:  # Открытие файла для чтения в бинарном режиме
-        return file.read()  # Возвращение содержимого файла
-
-def write_file(file_path, data):  # Определение функции для записи данных в файл
-    with open(file_path, "wb") as file:  # Открытие файла для записи в бинарном режиме
-        file.write(data)  # Запись данных в файл
-
-# Генерация ключевой пары
-private_key, public_key = generate_key_pair()  # Генерация ключевой пары
-
-# Чтение файла, который нужно подписать
-file_path = "test.txt"  # Путь к файлу, который нужно подписать
-message = read_file(file_path)  # Чтение содержимого файла
-
-# Подписание файла
-signature = sign_message(private_key, message)  # Подписание файла
-
-# Запись подписи в файл
-signature_file_path = "signature.sig"  # Путь к файлу, в который будет записана подпись
-write_file(signature_file_path, signature)  # Запись подписи в файл
-
-print(public_key)
-print(private_key)
-# Проверка подписи
-signature_to_verify = read_file(signature_file_path)  # Чтение подписи из файла
-is_valid_signature = verify_signature(public_key, message, signature_to_verify)  # Проверка подписи
-if is_valid_signature:  # Если подпись верна
-    print("Подпись верна.")  # Вывод сообщения о верности подписи
-else:  # Если подпись недействительна
-    print("Подпись неверна.")  # Вывод сообщения о недействительности подписи
+# Проверка подписи после изменения файла
+verify_signature(public_key, file_to_sign, signature_file)

@@ -85,7 +85,7 @@ private_key = PrivateKey(key_pair.GetPrivateKey())
 # расшифрование сообщения
 decrypted_message = private_key.DecipherString(cipher_text)
 print("Зашифрованное сообщение:", cipher_text)
-print("Расшифрованное сообщение:", decrypted_message)
+
 
 # запись в файл приватного ключа и расшифрованного сообщения
 SavePrivateKeyToFile(key_pair.GetPrivateKey())
